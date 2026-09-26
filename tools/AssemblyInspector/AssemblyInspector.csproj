@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <NuGetAudit>false</NuGetAudit>
+    <!-- The inspector uses the installed SDK and BepInEx DLL without NuGet downloads. -->
+    <DisableTransitiveFrameworkReferenceDownloads>true</DisableTransitiveFrameworkReferenceDownloads>
+    <GameDir Condition="'$(GameDir)' == '' and '$(NUCLEAR_OPTION_GAME)' != ''">$(NUCLEAR_OPTION_GAME)</GameDir>
+    <GameDir Condition="'$(GameDir)' == ''">$(HOME)/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common/Nuclear Option</GameDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Cecil reads metadata and IL without loading or executing the game assembly. -->
+    <Reference Include="Mono.Cecil">
+      <HintPath>$(GameDir)/BepInEx/core/Mono.Cecil.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="ValidateCecil" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(GameDir)/BepInEx/core/Mono.Cecil.dll')" Text="Mono.Cecil.dll not found under $(GameDir)/BepInEx/core. Set GameDir or NUCLEAR_OPTION_GAME." />
+  </Target>
+</Project>

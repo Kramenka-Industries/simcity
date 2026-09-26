@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <AssemblyName>SimcityVL49Cargo</AssemblyName>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <!-- Resolve framework and game types from the installed Mono assemblies. -->
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <NoStdLib>true</NoStdLib>
+    <NuGetAudit>false</NuGetAudit>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>bin/</OutputPath>
+    <!-- GameDir can also be passed as an MSBuild property. -->
+    <GameDir Condition="'$(GameDir)' == '' and '$(NUCLEAR_OPTION_GAME)' != ''">$(NUCLEAR_OPTION_GAME)</GameDir>
+    <GameDir Condition="'$(GameDir)' == ''">$(HOME)/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common/Nuclear Option</GameDir>
+    <GameManagedDir>$(GameDir)/NuclearOption_Data/Managed</GameManagedDir>
+    <GameCoreDir>$(GameDir)/BepInEx/core</GameCoreDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The development inspector is a separate executable. -->
+    <Compile Remove="tools/**/*.cs" />
+    <Reference Include="mscorlib"><HintPath>$(GameManagedDir)/mscorlib.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="netstandard"><HintPath>$(GameManagedDir)/netstandard.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="System"><HintPath>$(GameManagedDir)/System.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="System.Core"><HintPath>$(GameManagedDir)/System.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(GameManagedDir)/Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Mirage"><HintPath>$(GameManagedDir)/Mirage.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(GameManagedDir)/UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameManagedDir)/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="BepInEx"><HintPath>$(GameCoreDir)/BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(GameCoreDir)/0Harmony.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+  <Target Name="ValidateGameAssemblies" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(GameManagedDir)/Assembly-CSharp.dll')" Text="Game assembly not found: $(GameManagedDir)/Assembly-CSharp.dll. Set GameDir or NUCLEAR_OPTION_GAME to the Nuclear Option folder." />
+    <Error Condition="!Exists('$(GameCoreDir)/BepInEx.dll')" Text="BepInEx assembly not found: $(GameCoreDir)/BepInEx.dll. Install BepInEx 5 in the selected game folder." />
+  </Target>
+</Project>
