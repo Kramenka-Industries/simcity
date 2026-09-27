@@ -2,11 +2,13 @@
 
 A BepInEx 5 plugin that adds existing Nuclear Option vehicles to compatible cargo bays:
 
-- **VL-49:** MSV R9 Stratolance Launcher, Fire Control, Munitions, CRAM, and LADS. Sky Sentry AAA is also available when the MC-260 Chimera mod is loaded.
-- **Optional MC-260 Chimera:** every encyclopedia vehicle is offered automatically. Vehicles under 45 t are added to both front and rear cargo bays; vehicles from 45 t up to 90 t are added to the mission bay.
+- **VL-49:** every eligible encyclopedia vehicle is offered automatically. Vehicles up to 12 t are added to the front and rear cargo bays; vehicles from 12 t up to 24 t are added to the full cargo bay. Vehicles already offered by a base game or mod cargo mount in that bay are left alone.
+- **Optional MC-260 Chimera:** every eligible encyclopedia vehicle is offered automatically. Vehicles under 45 t are added to both front and rear cargo bays; vehicles from 45 t up to 90 t are added to the mission bay. Vehicles already offered by a base game or mod cargo mount in that bay are left alone.
 
 The game already provides LCV25 x2 and AFV6 AA cargo. MC-260 already provides SLMMR-S3 cargo; this plugin leaves those choices alone.
-Cargo above the VL-49's 20 t limit is skipped when the game loads its vehicle definitions. Vehicles above the MC-260's 90 t mission bay limit are skipped.
+Vehicles above the VL-49's 24 t limit and above the MC-260's 90 t mission bay limit are skipped.
+
+Tall cargo (configurable, default above 3.6 m) is spawned a configurable distance ahead of the aircraft when deployed so it does not clip into the bay and get stuck. Both values are exposed under `[Cargo deployment]` in the BepInEx config.
 
 ## Build and install
 
@@ -14,6 +16,6 @@ Run `just build` or `just install`. The latter copies `bin/SimcityVL49Cargo.dll`
 
 ## Notes
 
-The added cargo looks like an HLT-R truck inside the bay.
+The added cargo uses each bay's stock mount as a temporary in-bay model.
 
-Cargo prices use each vehicle definition's `value` plus the stock HLT-R mount's base cost. NOCommander reads the VL-49's cargo choices and should see these additions. Use `just inspect Rearmer` to inspect game assembly types; see the [inspector guide](tools/AssemblyInspector/README.md).
+Cargo prices use each vehicle definition's `value` plus the stock mount's base cost. NOCommander reads the cargo choices and should see these additions. Use `just inspect Rearmer` to inspect game assembly types; see the [inspector guide](tools/AssemblyInspector/README.md).
