@@ -8,7 +8,7 @@ using HarmonyLib;
 namespace Simcity
 {
     /// <summary>Installs the game hooks used by the VL-49 cargo options.</summary>
-    [BepInPlugin("ki.simcity", "KI Simcity VL-49 Cargo", "0.6.0")]
+    [BepInPlugin("ki.simcity", "KI Simcity VL-49 Cargo", "0.6.1")]
     public sealed class SimcityPlugin : BaseUnityPlugin
     {
         /// <summary>Current plugin instance used by static Harmony callbacks.</summary>

@@ -13,6 +13,8 @@ namespace Simcity
         private const string AircraftKey = "QuadVTOL1";
         /// <summary>Stock cargo mount used to locate the full bay and clone its prefab.</summary>
         private const string RadarCargoKey = "HLT-Rx1";
+        /// <summary>Maximum VL-49 cargo payload in kilograms.</summary>
+        private const float MaximumCargoMass = 20000f;
 
         /// <summary>Plugin log used for registration errors and diagnostics.</summary>
         private readonly ManualLogSource logger;
@@ -34,12 +36,6 @@ namespace Simcity
             new CargoOption("Truck2-LADS", "simcity_msv_lads_cargo", "MSV LADS",
                 "MSV LADS", "MSV LADS",
                 "Deploys one MSV LADS from the VL-49 cargo bay. Its laser engages small aerial munitions."),
-            new CargoOption("SPAAG1", "simcity_aerosentry_cargo", "AeroSentry SPAAG",
-                "AeroSentry SPAAG", "AeroSentry",
-                "Deploys one AeroSentry SPAAG from the VL-49 cargo bay. Twin 30 mm guns engage nearby aircraft."),
-            new CargoOption("SPAAG2", "simcity_anvil_cargo", "FGA-57 Anvil",
-                "FGA-57 Anvil", "Anvil",
-                "Deploys one FGA-57 Anvil from the VL-49 cargo bay. Its 57 mm gun engages air and ground targets."),
             new CargoOption("MC260_AAGunContainer_35", "simcity_mc260_sky_sentry_cargo", "Sky Sentry AAA",
                 "Sky Sentry AAA", "Sky Sentry",
                 "Deploys one Sky Sentry AAA container from the VL-49 cargo bay. Requires the MC-260 Chimera mod.",
@@ -104,6 +100,23 @@ namespace Simcity
                 return;
             }
 
+            // Check both masses because a vehicle definition and its prefab can disagree.
+            var unit = option.Vehicle.unitPrefab == null ? null : option.Vehicle.unitPrefab.GetComponent<Unit>();
+            if (unit == null)
+            {
+                logger.LogWarning("Skipping " + option.Name + ": vehicle prefab has no Unit component.");
+                return;
+            }
+            var prefabMass = unit.GetPrefabMass();
+            if (option.Vehicle.mass > MaximumCargoMass || prefabMass > MaximumCargoMass ||
+                option.Vehicle.mass <= 0f || prefabMass <= 0f ||
+                float.IsNaN(option.Vehicle.mass) || float.IsNaN(prefabMass))
+            {
+                logger.LogWarning("Skipping " + option.Name + ": definition mass=" + option.Vehicle.mass +
+                    " kg, prefab mass=" + prefabMass + " kg; VL-49 limit=" + MaximumCargoMass + " kg.");
+                return;
+            }
+
             // Reuse our mount when another mod reloads the encyclopedia.
             var mount = encyclopedia.weaponMounts.FirstOrDefault(candidate => candidate != null && candidate.jsonKey == option.MountKey);
             if (mount != null && mount != option.Mount)
@@ -118,7 +131,8 @@ namespace Simcity
                 encyclopedia.weaponMounts.Add(mount);
                 option.Mount = mount;
                 logger.LogInfo("Added " + option.Name + " to VL-49 " + cargoSet.name +
-                    " (using HLT-R cargo mount as a temporary in-bay model).");
+                    " (definition mass=" + option.Vehicle.mass + " kg, prefab mass=" + prefabMass +
+                    " kg; using HLT-R cargo mount as a temporary in-bay model).");
             }
 
             // Other mods rerun AfterLoad, which reinitializes and resets our cloned mount.

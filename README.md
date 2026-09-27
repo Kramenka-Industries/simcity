@@ -2,10 +2,11 @@
 
 A BepInEx 5 plugin that adds existing Nuclear Option vehicles to the VL-49's full cargo bay:
 
-- **Base game:** MSV R9 Stratolance Launcher, Fire Control, Munitions, CRAM, LADS, AeroSentry SPAAG, and FGA-57 Anvil.
+- **Base game:** MSV R9 Stratolance Launcher, Fire Control, Munitions, CRAM, and LADS.
 - **Optional MC-260 Chimera:** Sky Sentry AAA, when that mod's vehicle definition is loaded. It uses the stock container icon.
 
 The game already provides LCV25 x2 and AFV6 AA cargo. MC-260 already provides SLMMR-S3 cargo; this plugin leaves those choices alone.
+Cargo above the VL-49's 20 t limit is skipped when the game loads its vehicle definitions.
 
 ## Build and install
 
