@@ -33,9 +33,9 @@ namespace Simcity
         /// <summary>Burst cargo waiting for its first unit to spawn, keyed by owning unit.</summary>
         private static readonly Dictionary<Unit, PendingBurst> pendingBursts = new Dictionary<Unit, PendingBurst>();
         /// <summary>Distance in meters behind the aircraft at which the first burst unit is spawned.</summary>
-        private const float BurstDropBehindDistance = 20f;
+        private const float BurstDropBehindDistance = 40f;
         /// <summary>Extra meters of separation added for each later burst unit.</summary>
-        private const float BurstDropSpacing = 2f;
+        private const float BurstDropSpacing = 4f;
 
         /// <summary>One burst cargo waiting for the game to spawn its first unit.</summary>
         private sealed class PendingBurst
