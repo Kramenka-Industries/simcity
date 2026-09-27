@@ -53,21 +53,25 @@ namespace Simcity
 
             var frontSet = FindSetByName(aircraft, FrontSetName);
             var rearSet = FindSetByName(aircraft, RearSetName);
-            var smallSets = new[] { frontSet, rearSet }.Where(set => set != null).ToArray();
-            if (smallSets.Length == 0)
+            var smallSets = new[] { frontSet, rearSet }.Where(set => set != null).Distinct().ToList();
+            if (smallSets.Count < 2)
             {
-                // Fall back to any other cargo set so at least the full bay keeps working.
-                smallSets = aircraft.weaponManager.hardpointSets
-                    .Where(set => set != null && set.weaponOptions != null && set != fullSet &&
-                        set.weaponOptions.Any(option => option != null && IsSingleCargo(option)))
-                    .ToArray();
+                // The two small bays must offer identical options, so recover a missing bay from other cargo sets.
+                foreach (var set in aircraft.weaponManager.hardpointSets)
+                {
+                    if (set == null || set.weaponOptions == null || set == fullSet || smallSets.Contains(set)) continue;
+                    if (!NormalizeName(set.name).Contains("cargo")) continue;
+                    if (set.weaponOptions.Any(option => option != null && IsSingleCargo(option))) smallSets.Add(set);
+                }
             }
+            logger.LogInfo("VL-49 cargo bays: full=" + fullSet.name + ", small=" +
+                string.Join(", ", smallSets.Select(set => set.name).ToArray()) + ".");
 
             var bays = new List<CargoBay>();
-            if (smallSets.Length > 0)
+            if (smallSets.Count > 0)
             {
                 var smallTemplate = FirstSingleCargo(smallSets) ?? fullTemplate;
-                bays.Add(new CargoBay("Cargo Bay (Front) and Cargo Bay (Rear)", smallSets, smallTemplate,
+                bays.Add(new CargoBay("Cargo Bay (Front) and Cargo Bay (Rear)", smallSets.ToArray(), smallTemplate,
                     0f, MaximumFrontRearMass, true, "from the VL-49 front or rear cargo bay"));
             }
             bays.Add(new CargoBay(fullSet.name, new[] { fullSet }, fullTemplate,

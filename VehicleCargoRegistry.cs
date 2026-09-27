@@ -316,11 +316,25 @@ namespace Simcity
             return encyclopedia.weaponMounts.FirstOrDefault(mount => mount != null && IsSingleCargo(mount));
         }
 
-        /// <summary>Find a hardpoint set by its configured name.</summary>
+        /// <summary>Find a hardpoint set by name, ignoring spaces and punctuation.</summary>
         protected static HardpointSet FindSetByName(Aircraft aircraft, string name)
         {
+            var wanted = NormalizeName(name);
             return aircraft.weaponManager.hardpointSets.FirstOrDefault(set =>
-                set != null && set.weaponOptions != null && set.name == name);
+                set != null && set.weaponOptions != null && NormalizeName(set.name) == wanted);
+        }
+
+        /// <summary>Strip spaces and punctuation from a hardpoint set name for tolerant matching.</summary>
+        protected static string NormalizeName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return string.Empty;
+
+            var builder = new System.Text.StringBuilder(name.Length);
+            foreach (var character in name)
+            {
+                if (char.IsLetterOrDigit(character)) builder.Append(char.ToLowerInvariant(character));
+            }
+            return builder.ToString();
         }
 
         /// <summary>Check that a mount carries one deployable cargo component.</summary>

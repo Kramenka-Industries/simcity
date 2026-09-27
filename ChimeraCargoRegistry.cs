@@ -30,7 +30,7 @@ namespace Simcity
                     "UGV1_SAM", "UGV1_grenade", "UGV1_SAM", "UGV1_grenade", "UGV1_SAM",
                     "UGV1_grenade", "UGV1_SAM", "UGV1_grenade", "UGV1_SAM", "UGV1_grenade",
                     "UGV1_SAM", "UGV1_grenade", "UGV1_SAM", "UGV1_grenade", "UGV1_SAM",
-                }, 1.5f),
+                }, 0.3f),
         };
 
         /// <summary>Create a Chimera cargo registry that writes to the plugin log.</summary>
