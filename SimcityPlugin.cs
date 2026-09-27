@@ -28,8 +28,14 @@ namespace Simcity
         private ConfigEntry<float> tallCargoClearanceDistance;
         /// <summary>Which logistics vehicle family (HLT, MSV, or Both) is offered as cargo.</summary>
         private ConfigEntry<string> vehicleSet;
+        /// <summary>Comma-separated words that exclude a vehicle from generated cargo.</summary>
+        private ConfigEntry<string> vehicleNameDenylist;
         /// <summary>Burst cargo waiting for its first unit to spawn, keyed by owning unit.</summary>
         private static readonly Dictionary<Unit, PendingBurst> pendingBursts = new Dictionary<Unit, PendingBurst>();
+        /// <summary>Distance in meters behind the aircraft at which the first burst unit is spawned.</summary>
+        private const float BurstDropBehindDistance = 20f;
+        /// <summary>Extra meters of separation added for each later burst unit.</summary>
+        private const float BurstDropSpacing = 2f;
 
         /// <summary>One burst cargo waiting for the game to spawn its first unit.</summary>
         private sealed class PendingBurst
@@ -51,6 +57,8 @@ namespace Simcity
             vehicleSet = Config.Bind("Cargo", "VehicleSet", "HLT",
                 new ConfigDescription("Which logistics vehicle family is offered as generated cargo. HLT and MSV hide each other's matching vehicles.",
                     new AcceptableValueList<string>("HLT", "MSV", "Both")));
+            vehicleNameDenylist = Config.Bind("Cargo", "VehicleNameDenylist", "hypersonic,ballistic,nuclear",
+                "Comma-separated words that exclude a vehicle from generated cargo when its name contains one (case-insensitive).");
 
             registries = new VehicleCargoRegistry[]
             {
@@ -135,9 +143,10 @@ namespace Simcity
         {
             if (instance == null) return;
             var family = SelectedFamily();
+            var denylist = ParseDenylist(instance.vehicleNameDenylist.Value);
             foreach (var registry in instance.registries)
             {
-                try { registry.Register(__instance, family); }
+                try { registry.Register(__instance, family, denylist); }
                 catch (Exception error) { instance.Logger.LogError("Could not register " + registry.DisplayName + " cargo: " + error); }
             }
         }
@@ -151,6 +160,21 @@ namespace Simcity
                 case "Both": return VehicleFamily.Both;
                 default: return VehicleFamily.HLT;
             }
+        }
+
+        /// <summary>Split the configured denylist into trimmed words.</summary>
+        private static string[] ParseDenylist(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return new string[0];
+
+            var parts = value.Split(',');
+            var words = new List<string>();
+            for (var i = 0; i < parts.Length; i++)
+            {
+                var word = parts[i].Trim();
+                if (word.Length > 0) words.Add(word);
+            }
+            return words.ToArray();
         }
 
         /// <summary>Register optional vehicles once Blueprinter has applied its patches.</summary>
@@ -200,8 +224,7 @@ namespace Simcity
         }
 
         /// <summary>Start the remaining burst spawns once the game spawns the first unit.</summary>
-        private static void AfterSpawnUnit(Unit __result, UnitDefinition unit, Vector3 spawnPosition, Quaternion rotation,
-            Vector3 velocity, Unit owner, Player player)
+        private static void AfterSpawnUnit(Unit __result, UnitDefinition unit, Vector3 velocity, Unit owner, Player player)
         {
             if (instance == null || owner == null || unit == null) return;
 
@@ -215,11 +238,11 @@ namespace Simcity
             if (pending.Option.Vehicle == null || unit.jsonKey != pending.Option.Vehicle.jsonKey) return;
 
             pendingBursts.Remove(owner);
-            instance.StartCoroutine(instance.SpawnBurst(pending.Option, spawnPosition, rotation, velocity, owner, player));
+            instance.StartCoroutine(instance.SpawnBurst(pending.Option, velocity, owner, player));
         }
 
-        /// <summary>Spawn the rest of a burst cargo after a short delay between each unit.</summary>
-        private IEnumerator SpawnBurst(CargoOption option, Vector3 position, Quaternion rotation, Vector3 velocity, Unit owner, Player player)
+        /// <summary>Spawn the rest of a burst cargo behind the aircraft after a short delay between each unit.</summary>
+        private IEnumerator SpawnBurst(CargoOption option, Vector3 velocity, Unit owner, Player player)
         {
             var vehicles = option.BurstVehicles;
             if (vehicles == null) yield break;
@@ -229,10 +252,12 @@ namespace Simcity
                 if (option.BurstInterval > 0f) yield return new WaitForSeconds(option.BurstInterval);
                 if (owner == null || NetworkSceneSingleton<Spawner>.i == null) yield break;
 
-                var offset = rotation * new Vector3(((i % 2 == 0) ? 1f : -1f) * (1f + i * 0.25f), 0f, 0f);
+                // Drop relative to the aircraft's current heading so the stream always falls behind it.
+                var dropRotation = owner.transform.rotation;
+                var dropPosition = owner.transform.position - owner.transform.forward * (BurstDropBehindDistance + i * BurstDropSpacing);
                 try
                 {
-                    NetworkSceneSingleton<Spawner>.i.SpawnUnit(vehicles[i], position + offset, rotation, velocity, owner, player);
+                    NetworkSceneSingleton<Spawner>.i.SpawnUnit(vehicles[i], dropPosition, dropRotation, velocity, owner, player);
                 }
                 catch (Exception error)
                 {

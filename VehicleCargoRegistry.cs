@@ -43,7 +43,7 @@ namespace Simcity
         }
 
         /// <summary>Add every eligible encyclopedia vehicle to the matching cargo bay.</summary>
-        public void Register(Encyclopedia encyclopedia, VehicleFamily family)
+        public void Register(Encyclopedia encyclopedia, VehicleFamily family, string[] nameDenylist)
         {
             var aircraftDefinition = encyclopedia.aircraft.FirstOrDefault(definition => definition != null && definition.jsonKey == AircraftKey);
             if (aircraftDefinition == null) return;
@@ -67,6 +67,7 @@ namespace Simcity
             var duplicates = 0;
             var skipped = 0;
             var filtered = 0;
+            var denied = 0;
             foreach (var vehicle in encyclopedia.vehicles)
             {
                 if (vehicle == null || vehicle.unitPrefab == null) continue;
@@ -74,6 +75,12 @@ namespace Simcity
                 if (!MatchesFamily(vehicle, family))
                 {
                     filtered++;
+                    continue;
+                }
+
+                if (IsDenied(vehicle, nameDenylist))
+                {
+                    denied++;
                     continue;
                 }
 
@@ -145,7 +152,8 @@ namespace Simcity
             }
 
             logger.LogInfo(DisplayName + " cargo (" + family + "): " + registered + " vehicle(s) added across " + bays.Length +
-                " bay(s), " + duplicates + " already offered by another mount, " + filtered + " filtered by family, " + skipped + " skipped.");
+                " bay(s), " + duplicates + " already offered by another mount, " + filtered + " filtered by family, " +
+                denied + " denied by name, " + skipped + " skipped.");
         }
 
         /// <summary>Replace the cloned cargo payload with the selected vehicle.</summary>
@@ -331,6 +339,22 @@ namespace Simcity
             var isHlt = IsFamily(vehicle, "HLT");
             var isMsv = IsFamily(vehicle, "MSV");
             return family == VehicleFamily.HLT ? !isMsv : !isHlt;
+        }
+
+        /// <summary>Check whether a vehicle's name contains a denied word.</summary>
+        protected static bool IsDenied(VehicleDefinition vehicle, string[] nameDenylist)
+        {
+            if (nameDenylist == null || nameDenylist.Length == 0) return false;
+
+            var name = vehicle.unitName;
+            if (string.IsNullOrEmpty(name)) return false;
+
+            for (var i = 0; i < nameDenylist.Length; i++)
+            {
+                var word = nameDenylist[i];
+                if (!string.IsNullOrEmpty(word) && name.IndexOf(word, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            }
+            return false;
         }
 
         /// <summary>Check whether a vehicle belongs to a family by display name or known key pattern.</summary>
