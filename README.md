@@ -3,10 +3,10 @@
 A BepInEx 5 plugin that adds existing Nuclear Option vehicles to compatible cargo bays:
 
 - **VL-49:** MSV R9 Stratolance Launcher, Fire Control, Munitions, CRAM, and LADS. Sky Sentry AAA is also available when the MC-260 Chimera mod is loaded.
-- **Optional MC-260 Chimera:** AeroSentry SPAAG is added to both front and rear cargo bays when the Chimera mod is loaded.
+- **Optional MC-260 Chimera:** every encyclopedia vehicle is offered automatically. Vehicles under 45 t are added to both front and rear cargo bays; vehicles from 45 t up to 90 t are added to the mission bay.
 
 The game already provides LCV25 x2 and AFV6 AA cargo. MC-260 already provides SLMMR-S3 cargo; this plugin leaves those choices alone.
-Cargo above the VL-49's 20 t limit is skipped when the game loads its vehicle definitions. AeroSentry is limited to the MC-260's 45 t front and rear cargo bays.
+Cargo above the VL-49's 20 t limit is skipped when the game loads its vehicle definitions. Vehicles above the MC-260's 90 t mission bay limit are skipped.
 
 ## Build and install
 
