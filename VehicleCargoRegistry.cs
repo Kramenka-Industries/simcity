@@ -18,6 +18,8 @@ namespace Simcity
         private readonly Dictionary<string, CargoOption> options = new Dictionary<string, CargoOption>();
         /// <summary>Options indexed by their cloned mount for fast cargo attachment.</summary>
         private readonly Dictionary<WeaponMount, CargoOption> mounts = new Dictionary<WeaponMount, CargoOption>();
+        /// <summary>Options indexed by their weapon information for deployment lookups.</summary>
+        private readonly Dictionary<WeaponInfo, CargoOption> byInfo = new Dictionary<WeaponInfo, CargoOption>();
 
         /// <summary>Create a registry that writes to the plugin log and tags its mounts.</summary>
         protected VehicleCargoRegistry(ManualLogSource logger, string mountKeyPrefix)
@@ -29,10 +31,16 @@ namespace Simcity
         /// <summary>Game definition key of the aircraft this registry serves.</summary>
         protected abstract string AircraftKey { get; }
         /// <summary>Short name used in registration logs.</summary>
-        protected abstract string DisplayName { get; }
+        public abstract string DisplayName { get; }
 
         /// <summary>Discover the cargo bay groups for this aircraft, or null when the setup is invalid.</summary>
         protected abstract CargoBay[] BuildBays(Encyclopedia encyclopedia, Aircraft aircraft);
+
+        /// <summary>Hand-authored cargo entries to add beyond the generated ones.</summary>
+        protected virtual CuratedCargo[] BuildCurated(Encyclopedia encyclopedia, Aircraft aircraft)
+        {
+            return null;
+        }
 
         /// <summary>Add every eligible encyclopedia vehicle to the matching cargo bay.</summary>
         public void Register(Encyclopedia encyclopedia)
@@ -98,6 +106,37 @@ namespace Simcity
                 }
             }
 
+            var curated = BuildCurated(encyclopedia, aircraft);
+            if (curated != null)
+            {
+                foreach (var entry in curated)
+                {
+                    var bay = bays.FirstOrDefault(candidate => candidate.Name == entry.BayName);
+                    if (bay == null)
+                    {
+                        logger.LogWarning("Skipping curated cargo " + entry.Name + ": bay " + entry.BayName + " was not found.");
+                        continue;
+                    }
+
+                    if (entry.Option == null)
+                    {
+                        entry.Option = new CargoOption(entry.VehicleKey, entry.MountKey, entry.Label, entry.Name,
+                            entry.ShortName, entry.Description, false, null, entry.BurstVehicleKeys, entry.BurstInterval);
+                    }
+                    entry.Option.BurstVehicles = ResolveVehicles(encyclopedia, entry.BurstVehicleKeys);
+
+                    try
+                    {
+                        if (RegisterOption(encyclopedia, bay, entry.Option)) registered++;
+                        else skipped++;
+                    }
+                    catch (Exception error)
+                    {
+                        logger.LogError("Could not register curated " + DisplayName + " cargo: " + error);
+                    }
+                }
+            }
+
             logger.LogInfo(DisplayName + " cargo: " + registered + " vehicle(s) added across " + bays.Length +
                 " bay(s), " + duplicates + " already offered by another mount, " + skipped + " skipped.");
         }
@@ -125,13 +164,15 @@ namespace Simcity
         /// <summary>Check whether a registered weapon carries cargo tall enough to need deployment clearance.</summary>
         public bool IsTallCargo(WeaponInfo info, float threshold)
         {
-            if (info == null) return false;
+            var option = FindByInfo(info);
+            return option != null && option.Vehicle != null && option.Vehicle.height > threshold;
+        }
 
-            foreach (var option in options.Values)
-            {
-                if (option.Info == info && option.Vehicle != null && option.Vehicle.height > threshold) return true;
-            }
-            return false;
+        /// <summary>Find the cargo option behind a weapon information, or null.</summary>
+        public CargoOption FindByInfo(WeaponInfo info)
+        {
+            CargoOption option;
+            return info != null && byInfo.TryGetValue(info, out option) ? option : null;
         }
 
         /// <summary>Return the cached cargo choice for a vehicle, creating it on first use.</summary>
@@ -192,6 +233,7 @@ namespace Simcity
             option.Mount = mount;
 
             mount.info = option.Info;
+            byInfo[option.Info] = option;
             mount.mountName = option.Label;
             mount.emptyCost = bay.Template.emptyCost;
             mount.emptyMass = bay.Template.emptyMass;
@@ -268,6 +310,12 @@ namespace Simcity
             return null;
         }
 
+        /// <summary>Find any single-cargo mount in the encyclopedia as a last-resort clone template.</summary>
+        protected static WeaponMount FindAnyCargoTemplate(Encyclopedia encyclopedia)
+        {
+            return encyclopedia.weaponMounts.FirstOrDefault(mount => mount != null && IsSingleCargo(mount));
+        }
+
         /// <summary>Find a hardpoint set by its configured name.</summary>
         protected static HardpointSet FindSetByName(Aircraft aircraft, string name)
         {
@@ -280,6 +328,25 @@ namespace Simcity
         {
             return mount.Cargo && mount.prefab != null &&
                 mount.prefab.GetComponentsInChildren<MountedCargo>(true).Length == 1;
+        }
+
+        /// <summary>Resolve the unit definitions behind a list of vehicle keys.</summary>
+        private UnitDefinition[] ResolveVehicles(Encyclopedia encyclopedia, string[] keys)
+        {
+            if (keys == null || keys.Length == 0) return null;
+
+            var vehicles = new List<UnitDefinition>();
+            foreach (var key in keys)
+            {
+                var definition = encyclopedia.vehicles.FirstOrDefault(vehicle => vehicle != null && vehicle.jsonKey == key);
+                if (definition == null)
+                {
+                    logger.LogWarning("Burst cargo vehicle " + key + " was not found.");
+                    continue;
+                }
+                vehicles.Add(definition);
+            }
+            return vehicles.ToArray();
         }
 
         /// <summary>Build a stable encyclopedia key from a vehicle definition key.</summary>

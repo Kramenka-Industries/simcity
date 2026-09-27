@@ -19,6 +19,19 @@ namespace Simcity
         private const float MaximumCargoMass = 45000f;
         /// <summary>Maximum mission bay MC-260 cargo payload in kilograms.</summary>
         private const float MaximumMissionMass = 90000f;
+        /// <summary>Hand-authored mission bay loadout that drops a Hexhound swarm.</summary>
+        private static readonly CuratedCargo[] curated =
+        {
+            new CuratedCargo("Mission Bay", "simcity_chimera_hexhounds", "UGV1_grenade",
+                "16 Hexhounds and a Dream", "16 Hexhounds and a Dream", "16 Hexhounds",
+                "Deploys 8 Hexhound GMGs and 8 Hexhound SAMs in quick succession from the MC-260 mission bay.",
+                new[]
+                {
+                    "UGV1_SAM", "UGV1_grenade", "UGV1_SAM", "UGV1_grenade", "UGV1_SAM",
+                    "UGV1_grenade", "UGV1_SAM", "UGV1_grenade", "UGV1_SAM", "UGV1_grenade",
+                    "UGV1_SAM", "UGV1_grenade", "UGV1_SAM", "UGV1_grenade", "UGV1_SAM",
+                }, 1.5f),
+        };
 
         /// <summary>Create a Chimera cargo registry that writes to the plugin log.</summary>
         public ChimeraCargoRegistry(ManualLogSource logger) : base(logger, "simcity_chimera_cargo_")
@@ -28,7 +41,7 @@ namespace Simcity
         /// <summary>Game definition key of the MC-260 Chimera.</summary>
         protected override string AircraftKey { get { return AircraftKeyName; } }
         /// <summary>Short name used in registration logs.</summary>
-        protected override string DisplayName { get { return "MC-260"; } }
+        public override string DisplayName { get { return "MC-260"; } }
 
         /// <summary>Locate the Chimera front and rear cargo bays and its mission bay.</summary>
         protected override CargoBay[] BuildBays(Encyclopedia encyclopedia, Aircraft aircraft)
@@ -70,6 +83,12 @@ namespace Simcity
                 logger.LogWarning("MC-260 mission bay was not found; vehicles at or above " + MaximumCargoMass + " kg were skipped.");
             }
             return bays.ToArray();
+        }
+
+        /// <summary>Add the hand-authored Hexhound swarm to the mission bay.</summary>
+        protected override CuratedCargo[] BuildCurated(Encyclopedia encyclopedia, Aircraft aircraft)
+        {
+            return curated;
         }
 
         /// <summary>Locate the mission bay hardpoint set by name, falling back to the remaining single-cargo set.</summary>

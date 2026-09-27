@@ -1,9 +1,12 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
+using NuclearOption.Networking;
 using UnityEngine;
 
 // Contains the BepInEx plugin and cargo integration.
@@ -17,14 +20,23 @@ namespace Simcity
         private static SimcityPlugin instance;
         /// <summary>Owns the Harmony patches installed by this plugin.</summary>
         private Harmony harmony;
-        /// <summary>Registers VL-49 cargo mounts and assigns their deployable vehicles.</summary>
-        private CargoRegistry cargoRegistry;
-        /// <summary>Registers MC-260 cargo mounts and assigns their deployable vehicles.</summary>
-        private ChimeraCargoRegistry chimeraCargoRegistry;
+        /// <summary>Per-aircraft registries that add cargo mounts and assign deployable vehicles.</summary>
+        private VehicleCargoRegistry[] registries;
         /// <summary>Cargo taller than this many meters is spawned clear of the aircraft.</summary>
         private ConfigEntry<float> tallCargoHeightThreshold;
         /// <summary>Distance in meters ahead of the aircraft at which tall cargo is spawned.</summary>
         private ConfigEntry<float> tallCargoClearanceDistance;
+        /// <summary>Burst cargo waiting for its first unit to spawn, keyed by owning unit.</summary>
+        private static readonly Dictionary<Unit, PendingBurst> pendingBursts = new Dictionary<Unit, PendingBurst>();
+
+        /// <summary>One burst cargo waiting for the game to spawn its first unit.</summary>
+        private sealed class PendingBurst
+        {
+            /// <summary>The burst cargo option being deployed.</summary>
+            public CargoOption Option;
+            /// <summary>When this pending burst stops being valid.</summary>
+            public float Expires;
+        }
 
         /// <summary>Install the encyclopedia and weapon registration hooks.</summary>
         private void Awake()
@@ -35,8 +47,12 @@ namespace Simcity
             tallCargoClearanceDistance = Config.Bind("Cargo deployment", "TallCargoClearanceDistance", 20f,
                 "Distance in meters ahead of the aircraft at which tall cargo is spawned. Set to 0 to disable the clearance.");
 
-            cargoRegistry = new CargoRegistry(Logger);
-            chimeraCargoRegistry = new ChimeraCargoRegistry(Logger);
+            registries = new VehicleCargoRegistry[]
+            {
+                new CargoRegistry(Logger),
+                new ChimeraCargoRegistry(Logger),
+                new IbisCargoRegistry(Logger),
+            };
             var afterLoad = typeof(Encyclopedia).GetMethod("AfterLoad", BindingFlags.Instance | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
             if (afterLoad == null)
             {
@@ -51,6 +67,7 @@ namespace Simcity
             harmony.Patch(AccessTools.Method(typeof(WeaponManager), nameof(WeaponManager.RegisterWeapon)),
                 prefix: new HarmonyMethod(typeof(SimcityPlugin), nameof(BeforeRegisterWeapon)));
             PatchCargoRailLaunch();
+            PatchCargoSpawn();
             PatchOptionalBlueprinterLoad();
             Logger.LogInfo("Cargo hooks installed.");
         }
@@ -66,6 +83,19 @@ namespace Simcity
             }
 
             harmony.Patch(railLaunch, prefix: new HarmonyMethod(typeof(SimcityPlugin), nameof(BeforeCargoRailLaunch)));
+        }
+
+        /// <summary>Install the burst cargo hook on the server unit spawner.</summary>
+        private void PatchCargoSpawn()
+        {
+            var spawnUnit = AccessTools.Method(typeof(Spawner), "SpawnUnit");
+            if (spawnUnit == null)
+            {
+                Logger.LogWarning("Spawner.SpawnUnit() was not found; burst cargo loadouts are unavailable.");
+                return;
+            }
+
+            harmony.Patch(spawnUnit, postfix: new HarmonyMethod(typeof(SimcityPlugin), nameof(AfterSpawnUnit)));
         }
 
         /// <summary>Register optional cargo after Blueprinter finishes applying mod assets.</summary>
@@ -99,10 +129,11 @@ namespace Simcity
         private static void OnEncyclopediaLoaded(Encyclopedia __instance)
         {
             if (instance == null) return;
-            try { instance.cargoRegistry.Register(__instance); }
-            catch (Exception error) { instance.Logger.LogError("Could not register VL-49 cargo: " + error); }
-            try { instance.chimeraCargoRegistry.Register(__instance); }
-            catch (Exception error) { instance.Logger.LogError("Could not register MC-260 cargo: " + error); }
+            foreach (var registry in instance.registries)
+            {
+                try { registry.Register(__instance); }
+                catch (Exception error) { instance.Logger.LogError("Could not register " + registry.DisplayName + " cargo: " + error); }
+            }
         }
 
         /// <summary>Register optional vehicles once Blueprinter has applied its patches.</summary>
@@ -115,18 +146,31 @@ namespace Simcity
         private static void BeforeRegisterWeapon(Weapon weapon, WeaponMount weaponMount)
         {
             if (instance == null) return;
-            instance.cargoRegistry.AttachCargo(weapon, weaponMount);
-            instance.chimeraCargoRegistry.AttachCargo(weapon, weaponMount);
+            foreach (var registry in instance.registries) registry.AttachCargo(weapon, weaponMount);
         }
 
-        /// <summary>Spawn tall cargo clear of the aircraft so it does not clip and get stuck.</summary>
+        /// <summary>Spawn tall cargo clear of the aircraft and arm burst loadouts before they deploy.</summary>
         private static void BeforeCargoRailLaunch(MountedCargo __instance)
         {
             if (instance == null || __instance == null || __instance.info == null) return;
 
+            var burst = FindBurstOption(__instance.info);
+            if (burst != null && __instance.attachedUnit != null && __instance.attachedUnit.IsServer)
+            {
+                pendingBursts[__instance.attachedUnit] = new PendingBurst { Option = burst, Expires = Time.time + 60f };
+            }
+
             var threshold = instance.tallCargoHeightThreshold.Value;
-            if (!instance.cargoRegistry.IsTallCargo(__instance.info, threshold) &&
-                !instance.chimeraCargoRegistry.IsTallCargo(__instance.info, threshold)) return;
+            var tall = false;
+            foreach (var registry in instance.registries)
+            {
+                if (registry.IsTallCargo(__instance.info, threshold))
+                {
+                    tall = true;
+                    break;
+                }
+            }
+            if (!tall) return;
 
             var distance = instance.tallCargoClearanceDistance.Value;
             if (distance <= 0f) return;
@@ -136,6 +180,60 @@ namespace Simcity
 
             var mountedPosition = Traverse.Create(__instance).Field("mountedPosition").GetValue<Vector3>();
             __instance.transform.localPosition = mountedPosition + rail.normalized * distance;
+        }
+
+        /// <summary>Start the remaining burst spawns once the game spawns the first unit.</summary>
+        private static void AfterSpawnUnit(Unit __result, UnitDefinition unit, Vector3 spawnPosition, Quaternion rotation,
+            Vector3 velocity, Unit owner, Player player)
+        {
+            if (instance == null || owner == null || unit == null) return;
+
+            PendingBurst pending;
+            if (!pendingBursts.TryGetValue(owner, out pending)) return;
+            if (pending.Expires < Time.time)
+            {
+                pendingBursts.Remove(owner);
+                return;
+            }
+            if (pending.Option.Vehicle == null || unit.jsonKey != pending.Option.Vehicle.jsonKey) return;
+
+            pendingBursts.Remove(owner);
+            instance.StartCoroutine(instance.SpawnBurst(pending.Option, spawnPosition, rotation, velocity, owner, player));
+        }
+
+        /// <summary>Spawn the rest of a burst cargo after a short delay between each unit.</summary>
+        private IEnumerator SpawnBurst(CargoOption option, Vector3 position, Quaternion rotation, Vector3 velocity, Unit owner, Player player)
+        {
+            var vehicles = option.BurstVehicles;
+            if (vehicles == null) yield break;
+
+            for (var i = 0; i < vehicles.Length; i++)
+            {
+                if (option.BurstInterval > 0f) yield return new WaitForSeconds(option.BurstInterval);
+                if (owner == null || NetworkSceneSingleton<Spawner>.i == null) yield break;
+
+                var offset = rotation * new Vector3(((i % 2 == 0) ? 1f : -1f) * (1f + i * 0.25f), 0f, 0f);
+                try
+                {
+                    NetworkSceneSingleton<Spawner>.i.SpawnUnit(vehicles[i], position + offset, rotation, velocity, owner, player);
+                }
+                catch (Exception error)
+                {
+                    Logger.LogError("Could not spawn burst cargo: " + error);
+                    yield break;
+                }
+            }
+        }
+
+        /// <summary>Find the burst cargo option behind a weapon information, if any.</summary>
+        private static CargoOption FindBurstOption(WeaponInfo info)
+        {
+            foreach (var registry in instance.registries)
+            {
+                var option = registry.FindByInfo(info);
+                if (option != null && option.BurstVehicles != null && option.BurstVehicles.Length > 0) return option;
+            }
+            return null;
         }
     }
 }

@@ -3,10 +3,11 @@
 A BepInEx 5 plugin that adds existing Nuclear Option vehicles to compatible cargo bays:
 
 - **VL-49:** every eligible encyclopedia vehicle is offered automatically. Vehicles up to 12 t are added to the front and rear cargo bays; vehicles from 12 t up to 24 t are added to the full cargo bay. Vehicles already offered by a base game or mod cargo mount in that bay are left alone.
-- **Optional MC-260 Chimera:** every eligible encyclopedia vehicle is offered automatically. Vehicles under 45 t are added to both front and rear cargo bays; vehicles from 45 t up to 90 t are added to the mission bay. Vehicles already offered by a base game or mod cargo mount in that bay are left alone.
+- **UH-90 Ibis:** every eligible encyclopedia vehicle is offered automatically. Vehicles up to 4 t are added to the front and rear cargo bays; vehicles from 4 t up to 8 t are added to the full cargo bay. Vehicles already offered by a base game or mod cargo mount in that bay are left alone.
+- **Optional MC-260 Chimera:** every eligible encyclopedia vehicle is offered automatically. Vehicles under 45 t are added to both front and rear cargo bays; vehicles from 45 t up to 90 t are added to the mission bay. Vehicles already offered by a base game or mod cargo mount in that bay are left alone. The mission bay also offers a curated **16 Hexhounds and a Dream** loadout that drops 8 Hexhound GMGs and 8 Hexhound SAMs 1.5 s apart.
 
 The game already provides LCV25 x2 and AFV6 AA cargo. MC-260 already provides SLMMR-S3 cargo; this plugin leaves those choices alone.
-Vehicles above the VL-49's 24 t limit and above the MC-260's 90 t mission bay limit are skipped.
+Vehicles above the VL-49's 24 t limit, the Ibis's 8 t limit, and the MC-260's 90 t mission bay limit are skipped.
 
 Tall cargo (configurable, default above 3.6 m) is spawned a configurable distance ahead of the aircraft when deployed so it does not clip into the bay and get stuck. Both values are exposed under `[Cargo deployment]` in the BepInEx config.
 
