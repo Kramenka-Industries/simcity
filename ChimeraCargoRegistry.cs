@@ -56,10 +56,10 @@ namespace Simcity
             var cargoSets = aircraft.weaponManager.hardpointSets
                 .Where(set => set != null && set.weaponOptions != null && set.weaponOptions.Contains(cargoTemplate))
                 .ToArray();
-            if (cargoSets.Count != 2)
+            if (cargoSets.Length != 2)
             {
                 logger.LogError("Expected MC-260 front and rear cargo sets containing " + CargoTemplateKey +
-                    ", found " + cargoSets.Count + ". Sets: " + string.Join(", ", cargoSets.Select(set => set.name).ToArray()));
+                    ", found " + cargoSets.Length + ". Sets: " + string.Join(", ", cargoSets.Select(set => set.name).ToArray()));
                 return;
             }
 
