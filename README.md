@@ -1,12 +1,12 @@
-# KI Simcity VL-49 Cargo
+# KI Simcity Cargo
 
-A BepInEx 5 plugin that adds existing Nuclear Option vehicles to the VL-49's full cargo bay:
+A BepInEx 5 plugin that adds existing Nuclear Option vehicles to compatible cargo bays:
 
-- **Base game:** MSV R9 Stratolance Launcher, Fire Control, Munitions, CRAM, and LADS.
-- **Optional MC-260 Chimera:** Sky Sentry AAA, when that mod's vehicle definition is loaded. It uses the stock container icon.
+- **VL-49:** MSV R9 Stratolance Launcher, Fire Control, Munitions, CRAM, and LADS. Sky Sentry AAA is also available when the MC-260 Chimera mod is loaded.
+- **Optional MC-260 Chimera:** AeroSentry SPAAG is added to both front and rear cargo bays when the Chimera mod is loaded.
 
 The game already provides LCV25 x2 and AFV6 AA cargo. MC-260 already provides SLMMR-S3 cargo; this plugin leaves those choices alone.
-Cargo above the VL-49's 20 t limit is skipped when the game loads its vehicle definitions.
+Cargo above the VL-49's 20 t limit is skipped when the game loads its vehicle definitions. AeroSentry is limited to the MC-260's 45 t front and rear cargo bays.
 
 ## Build and install
 

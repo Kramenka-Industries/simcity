@@ -4,11 +4,11 @@ using System.Reflection;
 using BepInEx;
 using HarmonyLib;
 
-// Contains the BepInEx plugin and VL-49 cargo integration.
+// Contains the BepInEx plugin and cargo integration.
 namespace Simcity
 {
     /// <summary>Installs the game hooks used by the VL-49 cargo options.</summary>
-    [BepInPlugin("ki.simcity", "KI Simcity VL-49 Cargo", "0.6.1")]
+    [BepInPlugin("ki.simcity", "KI Simcity Cargo", "0.7.0")]
     public sealed class SimcityPlugin : BaseUnityPlugin
     {
         /// <summary>Current plugin instance used by static Harmony callbacks.</summary>
@@ -17,12 +17,15 @@ namespace Simcity
         private Harmony harmony;
         /// <summary>Registers cargo mounts and assigns their deployable vehicles.</summary>
         private CargoRegistry cargoRegistry;
+        /// <summary>Registers optional MC-260 cargo mounts and assigns their deployable vehicles.</summary>
+        private ChimeraCargoRegistry chimeraCargoRegistry;
 
         /// <summary>Install the encyclopedia and weapon registration hooks.</summary>
         private void Awake()
         {
             instance = this;
             cargoRegistry = new CargoRegistry(Logger);
+            chimeraCargoRegistry = new ChimeraCargoRegistry(Logger);
             var afterLoad = typeof(Encyclopedia).GetMethod("AfterLoad", BindingFlags.Instance | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
             if (afterLoad == null)
             {
@@ -37,7 +40,7 @@ namespace Simcity
             harmony.Patch(AccessTools.Method(typeof(WeaponManager), nameof(WeaponManager.RegisterWeapon)),
                 prefix: new HarmonyMethod(typeof(SimcityPlugin), nameof(BeforeRegisterWeapon)));
             PatchOptionalBlueprinterLoad();
-            Logger.LogInfo("VL-49 cargo hooks installed.");
+            Logger.LogInfo("Cargo hooks installed.");
         }
 
         /// <summary>Register optional cargo after Blueprinter finishes applying mod assets.</summary>
@@ -73,6 +76,8 @@ namespace Simcity
             if (instance == null) return;
             try { instance.cargoRegistry.Register(__instance); }
             catch (Exception error) { instance.Logger.LogError("Could not register VL-49 cargo: " + error); }
+            try { instance.chimeraCargoRegistry.Register(__instance); }
+            catch (Exception error) { instance.Logger.LogError("Could not register MC-260 cargo: " + error); }
         }
 
         /// <summary>Register optional vehicles once Blueprinter has applied its patches.</summary>
@@ -84,7 +89,9 @@ namespace Simcity
         /// <summary>Assign the selected mount's deployable vehicle before registration.</summary>
         private static void BeforeRegisterWeapon(Weapon weapon, WeaponMount weaponMount)
         {
-            if (instance != null) instance.cargoRegistry.AttachCargo(weapon, weaponMount);
+            if (instance == null) return;
+            instance.cargoRegistry.AttachCargo(weapon, weaponMount);
+            instance.chimeraCargoRegistry.AttachCargo(weapon, weaponMount);
         }
     }
 }
