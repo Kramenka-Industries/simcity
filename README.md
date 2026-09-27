@@ -11,6 +11,8 @@ Vehicles above the VL-49's 24 t limit, the Ibis's 8 t limit, and the MC-260's 90
 
 Tall cargo (configurable, default above 3.6 m) is spawned a configurable distance ahead of the aircraft when deployed so it does not clip into the bay and get stuck. Both values are exposed under `[Cargo deployment]` in the BepInEx config.
 
+The `[Cargo]` config option `VehicleSet` selects which logistics vehicle family is generated: `HLT` (default), `MSV`, or `Both`. `HLT` hides the matching MSV series and vice versa; `Both` offers every vehicle.
+
 ## Build and install
 
 Run `just build` or `just install`. The latter copies `bin/SimcityVL49Cargo.dll` into the game's `BepInEx/plugins/` directory. Restart the game after installation. Set `NUCLEAR_OPTION_GAME='/path/to/Nuclear Option'` for a nondefault installation. The plugin targets .NET Standard 2.0 with C# 7.3 and requires the installed game assemblies to build.

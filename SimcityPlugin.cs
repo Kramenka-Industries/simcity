@@ -26,6 +26,8 @@ namespace Simcity
         private ConfigEntry<float> tallCargoHeightThreshold;
         /// <summary>Distance in meters ahead of the aircraft at which tall cargo is spawned.</summary>
         private ConfigEntry<float> tallCargoClearanceDistance;
+        /// <summary>Which logistics vehicle family (HLT, MSV, or Both) is offered as cargo.</summary>
+        private ConfigEntry<string> vehicleSet;
         /// <summary>Burst cargo waiting for its first unit to spawn, keyed by owning unit.</summary>
         private static readonly Dictionary<Unit, PendingBurst> pendingBursts = new Dictionary<Unit, PendingBurst>();
 
@@ -46,6 +48,9 @@ namespace Simcity
                 "Cargo whose unit is taller than this many meters is spawned clear of the aircraft to avoid clipping into the bay.");
             tallCargoClearanceDistance = Config.Bind("Cargo deployment", "TallCargoClearanceDistance", 20f,
                 "Distance in meters ahead of the aircraft at which tall cargo is spawned. Set to 0 to disable the clearance.");
+            vehicleSet = Config.Bind("Cargo", "VehicleSet", "HLT",
+                new ConfigDescription("Which logistics vehicle family is offered as generated cargo. HLT and MSV hide each other's matching vehicles.",
+                    new AcceptableValueList<string>("HLT", "MSV", "Both")));
 
             registries = new VehicleCargoRegistry[]
             {
@@ -129,10 +134,22 @@ namespace Simcity
         private static void OnEncyclopediaLoaded(Encyclopedia __instance)
         {
             if (instance == null) return;
+            var family = SelectedFamily();
             foreach (var registry in instance.registries)
             {
-                try { registry.Register(__instance); }
+                try { registry.Register(__instance, family); }
                 catch (Exception error) { instance.Logger.LogError("Could not register " + registry.DisplayName + " cargo: " + error); }
+            }
+        }
+
+        /// <summary>Read the configured logistics vehicle family.</summary>
+        private static VehicleFamily SelectedFamily()
+        {
+            switch (instance.vehicleSet.Value)
+            {
+                case "MSV": return VehicleFamily.MSV;
+                case "Both": return VehicleFamily.Both;
+                default: return VehicleFamily.HLT;
             }
         }
 

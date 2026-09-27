@@ -43,7 +43,7 @@ namespace Simcity
         }
 
         /// <summary>Add every eligible encyclopedia vehicle to the matching cargo bay.</summary>
-        public void Register(Encyclopedia encyclopedia)
+        public void Register(Encyclopedia encyclopedia, VehicleFamily family)
         {
             var aircraftDefinition = encyclopedia.aircraft.FirstOrDefault(definition => definition != null && definition.jsonKey == AircraftKey);
             if (aircraftDefinition == null) return;
@@ -66,9 +66,16 @@ namespace Simcity
             var registered = 0;
             var duplicates = 0;
             var skipped = 0;
+            var filtered = 0;
             foreach (var vehicle in encyclopedia.vehicles)
             {
                 if (vehicle == null || vehicle.unitPrefab == null) continue;
+
+                if (!MatchesFamily(vehicle, family))
+                {
+                    filtered++;
+                    continue;
+                }
 
                 var unit = vehicle.unitPrefab.GetComponent<Unit>();
                 if (unit == null) continue;
@@ -137,8 +144,8 @@ namespace Simcity
                 }
             }
 
-            logger.LogInfo(DisplayName + " cargo: " + registered + " vehicle(s) added across " + bays.Length +
-                " bay(s), " + duplicates + " already offered by another mount, " + skipped + " skipped.");
+            logger.LogInfo(DisplayName + " cargo (" + family + "): " + registered + " vehicle(s) added across " + bays.Length +
+                " bay(s), " + duplicates + " already offered by another mount, " + filtered + " filtered by family, " + skipped + " skipped.");
         }
 
         /// <summary>Replace the cloned cargo payload with the selected vehicle.</summary>
@@ -314,6 +321,29 @@ namespace Simcity
         protected static WeaponMount FindAnyCargoTemplate(Encyclopedia encyclopedia)
         {
             return encyclopedia.weaponMounts.FirstOrDefault(mount => mount != null && IsSingleCargo(mount));
+        }
+
+        /// <summary>Check whether a vehicle belongs to the selected logistics family.</summary>
+        protected static bool MatchesFamily(VehicleDefinition vehicle, VehicleFamily family)
+        {
+            if (family == VehicleFamily.Both) return true;
+
+            var isHlt = IsFamily(vehicle, "HLT");
+            var isMsv = IsFamily(vehicle, "MSV");
+            return family == VehicleFamily.HLT ? !isMsv : !isHlt;
+        }
+
+        /// <summary>Check whether a vehicle belongs to a family by display name or known key pattern.</summary>
+        private static bool IsFamily(VehicleDefinition vehicle, string prefix)
+        {
+            if (!string.IsNullOrEmpty(vehicle.unitName) &&
+                vehicle.unitName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return true;
+
+            // Fall back to key patterns in case the display names have not been relabeled yet.
+            if (string.IsNullOrEmpty(vehicle.jsonKey)) return false;
+            if (prefix == "HLT") return vehicle.jsonKey.StartsWith("HLT-", StringComparison.OrdinalIgnoreCase);
+            if (prefix == "MSV") return vehicle.jsonKey.StartsWith("Truck2-", StringComparison.OrdinalIgnoreCase);
+            return false;
         }
 
         /// <summary>Find a hardpoint set by name, ignoring spaces and punctuation.</summary>
