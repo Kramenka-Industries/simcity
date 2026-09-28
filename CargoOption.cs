@@ -20,8 +20,14 @@ namespace Simcity
         public readonly bool Optional;
         /// <summary>Stock mount whose loadout icon this choice should display, if any.</summary>
         public readonly string IconSourceMountKey;
+        /// <summary>Vehicle keys spawned one after another when this is a burst cargo, or null.</summary>
+        public readonly string[] BurstVehicleKeys;
+        /// <summary>Seconds between each burst spawn.</summary>
+        public readonly float BurstInterval;
         /// <summary>Vehicle definition resolved from the encyclopedia.</summary>
         public VehicleDefinition Vehicle;
+        /// <summary>Resolved burst vehicle definitions, in spawn order.</summary>
+        public UnitDefinition[] BurstVehicles;
         /// <summary>Cloned cargo mount added to the VL-49.</summary>
         public WeaponMount Mount;
         /// <summary>Weapon information assigned to the cloned mount.</summary>
@@ -29,9 +35,9 @@ namespace Simcity
         /// <summary>Tracks whether the mass diagnostic was logged.</summary>
         public bool LoggedMass;
 
-        /// <summary>Describe one vehicle and its VL-49 cargo loadout entry.</summary>
+        /// <summary>Describe one vehicle and its cargo loadout entry.</summary>
         public CargoOption(string vehicleKey, string mountKey, string label, string name, string shortName, string description,
-            bool optional = false, string iconSourceMountKey = null)
+            bool optional = false, string iconSourceMountKey = null, string[] burstVehicleKeys = null, float burstInterval = 0f)
         {
             VehicleKey = vehicleKey;
             MountKey = mountKey;
@@ -41,6 +47,8 @@ namespace Simcity
             Description = description;
             Optional = optional;
             IconSourceMountKey = iconSourceMountKey;
+            BurstVehicleKeys = burstVehicleKeys;
+            BurstInterval = burstInterval;
         }
     }
 }
